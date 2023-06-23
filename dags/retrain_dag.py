@@ -6,7 +6,6 @@ libdir = os.path.join(thisdir, '../DS_MLOps/lib/')
 if libdir not in sys.path:
     sys.path.insert(0, libdir)
 
-
 from airflow import DAG
 from airflow.utils.dates import days_ago
 from airflow.operators.python import PythonOperator, BranchPythonOperator
@@ -199,7 +198,7 @@ operation is triggered manually
             )
         ],
         mount_tmp_dir=False,
-        command=['python', os.path.join(DS_MLOPS_PATH, 'bin', 'test_new_model.py')],
+        command=['python', os.path.join(DS_MLOPS_PATH, 'bin', 'score_new_model.py')],
         xcom_all=False,
         docker_url="TCP://docker-socket-proxy:2375",
         # docker_url="unix://var/run/docker.sock",
@@ -237,7 +236,7 @@ operation is triggered manually
             )
         ],
         mount_tmp_dir=False,
-        command=['python', os.path.join(DS_MLOPS_PATH, 'bin', 'test_prod_model.py')],
+        command=['python', os.path.join(DS_MLOPS_PATH, 'bin', 'score_prod_model.py')],
         xcom_all=False,
         docker_url="TCP://docker-socket-proxy:2375",
         # docker_url="unix://var/run/docker.sock",
