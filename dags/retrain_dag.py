@@ -131,7 +131,9 @@ operation is triggered manually
         """
     )
 
-    # use HOST_GIT_PATH to clone de repository in
+    # TODO:
+    # use HOST_DS_MLOPS_PATH in a BachOperator to pull DS_MLOps repository
+    # manage credential with secret value.
     task_clone_git = DummyOperator(
         task_id="clone_git",
         dag=my_dag,
@@ -263,12 +265,23 @@ operation is triggered manually
         dag=my_dag
     )
     
+    # TODO:
+    # use HOST_DS_MLOPS_PATH in a BachOperator to commit and push DS_MLOps repository
+    # manage credential with secret value.
     task_accurate = DummyOperator(
         task_id='accurate'
     )
 
+    # TODO:
+    # send a message via Slack or email
     task_inaccurate = DummyOperator(
         task_id='inaccurate'
+    )
+
+    # TODO:
+    # send a message via Slack or email following accurate
+    task_accurate_msg = DummyOperator(
+        task_id='accurate_msg'
     )
 
     task_end = DummyOperator(
@@ -292,5 +305,6 @@ operation is triggered manually
     task_prod_model >> task_xCom_from_test_prod_model
     [task_xCom_from_test_new_model, task_xCom_from_test_prod_model] >> task_select_model
     task_select_model >> [task_accurate, task_inaccurate]
-    [task_accurate, task_inaccurate] >> task_end
+    task_accurate >> task_accurate_msg
+    [task_accurate_msg, task_inaccurate] >> task_end
 
