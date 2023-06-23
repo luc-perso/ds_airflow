@@ -28,7 +28,7 @@ STORAGE_PATH = os.getenv('STORAGE_PATH')
 DB_STORAGE_PATH = os.getenv('DB_STORAGE_PATH')
 PROD_MODEL_NAME = os.getenv('PROD_MODEL_NAME')
 
-Variable.set("retrained_model_name", '')
+# Variable.set("retrained_model_name", 'bisous')
 
 with DAG(
     dag_id='retrain_dag',
@@ -93,7 +93,9 @@ operation is triggered manually
     def variable_from_retrained_model(task_instance):
         retrained_model_name = read_xcom(task_instance, ['retrain_model'])
         # write_xCom(task_instance, 'retrained_model_name', retrained_model_name)
+        print(retrained_model_name)
         Variable.set("retrained_model_name", retrained_model_name)
+        # print(Variable.get("retrained_model_name"))
 
 
     def xCom_from_test_new_model(task_instance):
@@ -114,7 +116,10 @@ operation is triggered manually
         print(prod_f1_score)
 
         if new_f1_score > prod_f1_score:
+            print('IN')
             new_model_name = Variable.get("retrained_model_name")
+            print(Variable.get("retrained_model_name"))
+            print(new_model_name)
             overwrite_prod_model(STORAGE_PATH, DB_STORAGE_PATH, PROD_MODEL_NAME, new_model_name)
             return 'accurate'
         

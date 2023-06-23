@@ -65,6 +65,7 @@ x-airflow-common: &airflow-common
     - ./logs:/opt/airflow/logs
     - ./plugins:/opt/airflow/plugins
     - ./DS_MLOps:/opt/airflow/DS_MLOps
+    - ./DS_MLOps:/DS_MLOps
   user: "${AIRFLOW_UID:-50000}:${AIRFLOW_GID:-50000}"
   depends_on:
     redis:
