@@ -1,0 +1,3 @@
+[submodule "DS_MLOps"]
+	path = DS_MLOps
+	url = git@github.com:luc-perso/DS_MLOps.git
