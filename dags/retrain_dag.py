@@ -15,6 +15,12 @@ from airflow.models import Variable, DAG, XCom
 from airflow.utils.db import provide_session
 from docker.types import Mount
 
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from os.path import join
+from github import Github
+
 import datetime
 from dotenv import load_dotenv
 
@@ -27,6 +33,11 @@ DS_MLOPS_PATH = os.getenv('DS_MLOPS_PATH')
 STORAGE_PATH = os.getenv('STORAGE_PATH')
 DB_STORAGE_PATH = os.getenv('DB_STORAGE_PATH')
 PROD_MODEL_NAME = os.getenv('PROD_MODEL_NAME')
+
+SENDER_MAIL = os.getenv('SENDER_MAIL')
+SENDER_PASSWORD = os.getenv('SENDER_PASSWORD')
+RECEPT_MAIL = os.getenv('RECEPT_MAIL')
+TOKEN_GITHUB = os.getenv('TOKEN_GITHUB')
 
 # Variable.set("retrained_model_name", 'bisous')
 
@@ -124,6 +135,63 @@ operation is triggered manually
             return 'accurate'
         
         return 'inaccurate'
+    
+
+    def send_mail(subject, dest, mess):
+        """
+        Cette fonction permet d'envoyer des emails à partir d'un compte outlook
+        """
+        try:
+            smtpObj = smtplib.SMTP('smtp-mail.outlook.com', 587)
+        except Exception as e:
+            print(e)
+            smtpObj = smtplib.SMTP_SSL('smtp-mail.outlook.com', 465)
+
+        msg = MIMEMultipart()
+        msg['From'] = SENDER_MAIL
+        msg['To'] = dest
+        msg['Subject'] = subject
+        message = mess
+        msg.attach(MIMEText(message))
+
+        smtpObj.ehlo()
+        smtpObj.starttls()
+        smtpObj.login(SENDER_MAIL, SENDER_PASSWORD)
+        smtpObj.sendmail(SENDER_MAIL, dest, msg.as_string())
+
+        smtpObj.quit()
+
+    def send_mail_inaccurate(task_instance):
+        new_f1_score = task_instance.xcom_pull(task_ids=['xCom_from_test_new_model'], key='new_model_f1_score')[0]
+        prod_f1_score = task_instance.xcom_pull(task_ids=['xCom_from_test_prod_model'], key='prod_model_f1_score')[0]
+        subject = "Retrain model failed !"
+        mess = f'Training of the new model failed.\nThe new F1 score is {new_f1_score} compared to the previous score {prod_f1_score}.'
+
+        send_mail(subject, RECEPT_MAIL, mess)
+
+    def send_mail_accurate(task_instance):
+        new_f1_score = task_instance.xcom_pull(task_ids=['xCom_from_test_new_model'], key='new_model_f1_score')[0]
+        prod_f1_score = task_instance.xcom_pull(task_ids=['xCom_from_test_prod_model'], key='prod_model_f1_score')[0]
+        subject = "Retrain model success !"
+        mess = f'Training of the new model was successful.\nThe new F1 score is {new_f1_score} compared with the previous score of {prod_f1_score}.\nThe new model will now go into production.'
+
+        send_mail(subject, RECEPT_MAIL, mess)
+
+
+    def send_file_github(token, repo_name, filepath, filename):
+        """
+        Cette fonction permet d'envoyer un fichier directement sur le contenu sur un repo Github
+        """
+        g = Github(token)
+        repo = g.get_user().get_repo(repo_name)
+        file = join(filepath, filename)
+        with open(file, 'rb') as fichier:
+            contenu = fichier.read()
+
+        repo.create_file(filename, "commit new model after retraining", contenu, branch="main")
+    
+    def send_model_github(task_instance):
+        send_file_github(TOKEN_GITHUB, 'DS_MLOPS', DB_STORAGE_PATH, PROD_MODEL_NAME)
 
 
     task_load_data = DummyOperator(
@@ -270,23 +338,31 @@ operation is triggered manually
         dag=my_dag
     )
     
+    
     # TODO:
-    # use HOST_DS_MLOPS_PATH in a BachOperator to commit and push DS_MLOps repository
     # manage credential with secret value.
-    task_accurate = DummyOperator(
-        task_id='accurate'
+    task_upload_model = PythonOperator(
+        task_id='send_model_github',
+        provide_context=True,
+        python_callable=send_file_github,
+        dag=my_dag
     )
 
-    # TODO:
-    # send a message via Slack or email
-    task_inaccurate = DummyOperator(
-        task_id='inaccurate'
+    # send a message via email
+    task_inaccurate_msg = PythonOperator(
+        task_id='send_msg_inaccurate',
+        provide_context=True,
+        python_callable=send_mail_inaccurate,
+        dag=my_dag
     )
 
-    # TODO:
-    # send a message via Slack or email following accurate
-    task_accurate_msg = DummyOperator(
-        task_id='accurate_msg'
+
+    # send a message via email following accurate
+    task_accurate_msg = PythonOperator(
+        task_id='accurate_msg',
+        provide_context=True,
+        python_callable=send_mail_accurate,
+        dag=my_dag
     )
 
     task_end = DummyOperator(
@@ -309,7 +385,7 @@ operation is triggered manually
     task_new_model >> task_xCom_from_test_new_model
     task_prod_model >> task_xCom_from_test_prod_model
     [task_xCom_from_test_new_model, task_xCom_from_test_prod_model] >> task_select_model
-    task_select_model >> [task_accurate, task_inaccurate]
-    task_accurate >> task_accurate_msg
-    [task_accurate_msg, task_inaccurate] >> task_end
+    task_select_model >> [task_accurate_msg, task_inaccurate_msg]
+    task_accurate_msg >> task_upload_model
+    [task_upload_model, task_inaccurate_msg] >> task_end
 
