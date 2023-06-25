@@ -19,7 +19,7 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from os.path import join
-from github import Github
+from github import Github, GithubException
 
 import datetime
 from dotenv import load_dotenv
@@ -181,14 +181,20 @@ operation is triggered manually
     def send_file_github(token, repo_name, filepath, filename):
         """
         Cette fonction permet d'envoyer un fichier directement sur le contenu sur un repo Github
+        Si le fichier existe 
         """
         g = Github(token)
         repo = g.get_user().get_repo(repo_name)
         file = join(filepath, filename)
+
         with open(file, 'rb') as fichier:
             contenu = fichier.read()
 
-        repo.create_file(filename, "commit new model after retraining", contenu, branch="main")
+        try:
+            contents = repo.get_contents(filename, ref='main')
+            repo.update_file(contents.path, "update file", contenu, contents.sha, branch="main")
+        except GithubException:
+            repo.create_file(filename, "commit new model", contenu, branch="main")
     
     def send_model_github(task_instance):
         send_file_github(TOKEN_GITHUB, 'DS_MLOPS', DB_STORAGE_PATH, PROD_MODEL_NAME)
