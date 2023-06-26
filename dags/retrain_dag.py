@@ -356,7 +356,7 @@ operation is triggered manually
 
     # send a message via email
     task_inaccurate_msg = PythonOperator(
-        task_id='send_msg_inaccurate',
+        task_id='inaccurate',
         provide_context=True,
         python_callable=send_mail_inaccurate,
         dag=my_dag
@@ -365,7 +365,7 @@ operation is triggered manually
 
     # send a message via email following accurate
     task_accurate_msg = PythonOperator(
-        task_id='accurate_msg',
+        task_id='accurate',
         provide_context=True,
         python_callable=send_mail_accurate,
         dag=my_dag
