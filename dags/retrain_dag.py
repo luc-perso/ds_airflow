@@ -39,7 +39,7 @@ SENDER_PASSWORD = os.getenv('SENDER_PASSWORD')
 RECEPT_MAIL = os.getenv('RECEPT_MAIL')
 TOKEN_GITHUB = os.getenv('TOKEN_GITHUB')
 
-Variable.set("retrained_model_name", 'bisous')
+# Variable.set("retrained_model_name", 'bisous')
 
 with DAG(
     dag_id='retrain_dag',
