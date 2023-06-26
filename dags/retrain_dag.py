@@ -24,7 +24,7 @@ from github import Github, GithubException
 import datetime
 from dotenv import load_dotenv
 
-from retraining.overwrite import overwrite_prod_model
+from retraining.overwrite import overwrite_prod_model, build_path_model
 
 load_dotenv()
 HOST_DS_MLOPS_PATH = os.getenv('HOST_DS_MLOPS_PATH')
@@ -181,7 +181,7 @@ operation is triggered manually
     def send_file_github(token, repo_name, filepath, filename):
         """
         Cette fonction permet d'envoyer un fichier directement sur le contenu sur un repo Github
-        Si le fichier existe 
+        Si le fichier existe, il sera mise à jour sinon il sera créé
         """
         g = Github(token)
         repo = g.get_user().get_repo(repo_name)
@@ -197,7 +197,8 @@ operation is triggered manually
             repo.create_file(filename, "commit new model", contenu, branch="main")
     
     def send_model_github(task_instance):
-        send_file_github(TOKEN_GITHUB, 'DS_MLOPS', DB_STORAGE_PATH, PROD_MODEL_NAME)
+        prod_model_full_path, new_model_full_path, new_model_save_full_path = build_path_model(STORAGE_PATH, DB_STORAGE_PATH, PROD_MODEL_NAME, Variable.get("retrained_model_name"))
+        send_file_github(TOKEN_GITHUB, 'DS_MLOPS', prod_model_full_path, new_model_save_full_path)
 
 
     task_load_data = DummyOperator(
@@ -350,7 +351,7 @@ operation is triggered manually
     task_upload_model = PythonOperator(
         task_id='send_model_github',
         provide_context=True,
-        python_callable=send_file_github,
+        python_callable=send_model_github,
         dag=my_dag
     )
 
