@@ -11,6 +11,7 @@ from airflow.utils.dates import days_ago
 from airflow.operators.python import PythonOperator, BranchPythonOperator
 from airflow.operators.docker_operator import DockerOperator
 from airflow.operators.dummy import DummyOperator
+from airflow.operators.bash_operator import BashOperator
 from airflow.models import Variable, DAG, XCom
 from airflow.utils.db import provide_session
 from docker.types import Mount
@@ -201,26 +202,37 @@ operation is triggered manually
         send_file_github(TOKEN_GITHUB, 'DS_MLOPS', prod_model_full_path, new_model_save_full_path)
 
 
-    task_load_data = DummyOperator(
+    task_load_data = BashOperator(
         task_id="load_data",
+        env= {
+            "AWS_ACCESS_KEY_ID": Variable.get("AWS_ACCESS_KEY_ID"),
+            "AWS_SECRET_ACCESS_KEY": Variable.get("AWS_SECRET_ACCESS_KEY"),
+            "AWS_DEFAULT_REGION": Variable.get("AWS_DEFAULT_REGION"),
+        },
+        bash_command='''\
+            aws s3 cp s3://mlops-covid/data_test.zip /tmp/data_test.zip &&
+            mkdir -p DS_MLOps/storage/input/db
+            unzip /tmp/data_test.zip -d DS_MLOps/storage/input/db
+        ''',
         dag=my_dag,
         doc_md="""
         # End
 
-        Dummy task to mark load_data task todo
+        Load dataset from aws s3
         """
     )
 
     # TODO:
     # use HOST_DS_MLOPS_PATH in a BachOperator to pull DS_MLOps repository
     # manage credential with secret value.
-    task_clone_git = DummyOperator(
+    task_clone_git = BashOperator(
         task_id="clone_git",
+        bash_command= 'rm -rf DS_MLOps && git clone https://github.com/luc-perso/DS_MLOps.git',
         dag=my_dag,
         doc_md="""
         # End
-
-        Dummy task to mark clone git task todo
+        
+        clone git DS_MLOPS github repository
         """
     )
 
@@ -385,8 +397,8 @@ operation is triggered manually
 
 
 
-    task_load_data >> task_clone_git
-    task_clone_git >> task_retrain_model
+    task_clone_git >> task_load_data
+    task_load_data >> task_retrain_model
     task_retrain_model >> task_variable_from_retrained_model
     task_variable_from_retrained_model >> [task_new_model, task_prod_model]
     task_new_model >> task_xCom_from_test_new_model
