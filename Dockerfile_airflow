@@ -2,4 +2,10 @@ FROM apache/airflow:2.6.2-python3.10
 
 COPY ./requirements.txt ./
 
+USER root
+
+RUN apt update && apt install -y git
+
+USER airflow
+
 RUN pip install -r requirements.txt
